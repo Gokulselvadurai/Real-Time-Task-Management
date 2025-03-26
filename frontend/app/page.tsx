@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
 import TaskList from '@/components/TaskList';
 import CreateTaskModal from '@/components/CreateTaskModal';
+import { AiOutlineQuestionCircle } from 'react-icons/ai'; // Install react-icons if not already installed
+import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
+import { AzureKeyCredential } from "@azure/core-auth";
 
 interface Task {
   id: string;
@@ -28,6 +31,8 @@ export default function Dashboard() {
   const { logout, checkAuthStatus, user } = useAuth();
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
+  const [showHelpPopup, setShowHelpPopup] = useState(false);
+  const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -90,6 +95,53 @@ export default function Dashboard() {
     );
   };
 
+  const fetchAiSuggestion = async () => {
+    const token = process.env.NEXT_PUBLIC_GITHUB_TOKEN; // Use the environment variable for the GitHub token
+    if (!token) {
+      setAiSuggestion('GitHub token not configured');
+      return;
+    }
+
+    try {
+      const client = ModelClient(
+        "https://models.inference.ai.azure.com",
+        new AzureKeyCredential(token)
+      );
+
+      // Prepare task context
+      const taskContext = tasks.map(
+        (task) => `Task: ${task.name}, Assigned to: ${task.assignedto}`
+      ).join("\n");
+
+      const response = await client.path("/chat/completions").post({
+        body: {
+          messages: [
+            { role: "system", content: "You are a helpful assistant. Respond with a single flowing paragraph. Avoid bullet points, numbers, or any special formatting." },
+            { role: "user", content: `Here are the tasks:\n${taskContext}\nProvide suggestions or assistance. Write one big sentence about task progress.` }
+          ],
+          model: "gpt-4o", // Updated model to "gpt-4o"
+          temperature: 1, // Set temperature to 1
+          max_tokens: 2000, 
+          top_p: 1 // Set top_p to 1
+        },
+      });
+
+      if (isUnexpected(response)) {
+        throw response.body.error;
+      }
+
+      setAiSuggestion(response.body.choices[0].message.content || 'No suggestion available.');
+    } catch (error) {
+      console.error('AI suggestion error:', error);
+      setAiSuggestion('Failed to fetch suggestions. Please try again later.');
+    }
+  };
+
+  const handleHelpClick = () => {
+    fetchAiSuggestion();
+    setShowHelpPopup(true);
+  };
+
   if (error) {
     return <div className="text-red-500 p-4">{error}</div>;
   }
@@ -132,6 +184,28 @@ export default function Dashboard() {
           onClose={() => setShowModal(false)}
           onTaskCreated={fetchTasks}
         />
+      )}
+      <div className="fixed bottom-4 right-4">
+        <button
+          onClick={handleHelpClick}
+          className="p-3 bg-blue-500 text-white rounded-full shadow-lg hover:bg-blue-600"
+        >
+          <AiOutlineQuestionCircle size={24} />
+        </button>
+      </div>
+      {showHelpPopup && (
+        <div className="popup fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-white p-6 rounded shadow-lg max-w-md w-full">
+            <h2 className="text-lg font-bold mb-4">AI Suggestion</h2>
+            <p>{aiSuggestion || 'Loading...'}</p>
+            <button
+              onClick={() => setShowHelpPopup(false)}
+              className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
+            >
+              Close
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
