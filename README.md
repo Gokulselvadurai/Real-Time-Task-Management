@@ -42,7 +42,7 @@ The project is divided into two main parts:
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-repo/real-time-task-manager.git
+   git clone https://github.com/Gokulselvadurai/real-time-task-management.git
    cd real-time-task-manager
    ```
 
