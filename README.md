@@ -19,6 +19,9 @@ This application allows users to create, assign, and track tasks in real-time. I
 ### Website Interface
 ![Website Screenshot](./website_screenshots/homepage_preview.png)
 
+### AI Suggestions
+![AI Suggestions Screenshot](./website_screenshots/ai_suggestion_panel.png)
+
 ## Project Structure
 
 The project is divided into two main parts:
